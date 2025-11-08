@@ -183,6 +183,22 @@ rabbitMQClient.subscribeToTopic(
 );
 ```
 
+## Documentation
+
+### 📘 [Complete API Methods Guide](docs/API_GUIDE.md)
+
+Comprehensive reference with all classes, methods, parameters, and examples. Covers:
+
+- Detailed method documentation with parameters and return types
+
+- Code examples for every method
+
+- Common patterns and use cases
+
+- Best practices and error handling
+
+- Performance tips
+
 ## API Reference
 
 ### RabbitMQClient

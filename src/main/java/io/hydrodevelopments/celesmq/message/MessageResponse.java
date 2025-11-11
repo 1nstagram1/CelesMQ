@@ -268,4 +268,17 @@ public class MessageResponse {
     return status.equals(ResponseStatus.ERROR);
   }
 
+  /**
+   * Checks if the response timed out
+   */
+  public boolean isTimeout() {
+    return status.equals(ResponseStatus.TIMEOUT);
+  }
+
+  /**
+   * Gets the raw JSON string
+   */
+  public String getRawJson() {
+    return rawMessage;
+  }
 }

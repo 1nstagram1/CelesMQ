@@ -127,6 +127,13 @@ public class MessageRequest {
   }
 
   /**
+   * Sets all data at once from a Map
+   */
+  public MessageRequest data(Map<String, Object> data) {
+    return params(data);
+  }
+
+  /**
    * Gets the current request data
    */
   public JsonObject getData() {

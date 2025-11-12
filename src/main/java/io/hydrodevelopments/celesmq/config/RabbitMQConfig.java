@@ -132,11 +132,9 @@ public class RabbitMQConfig {
     private int connectionTimeout;
     private int networkRecoveryInterval;
     private boolean automaticRecoveryEnabled;
-    private String consumerName; // Optional - will be auto-generated if null
+    private String consumerName;
     private Map<String, String> channels = new HashMap<>();
     private boolean autoSubscribe;
-
-    // SSL/TLS configuration (optional)
     private boolean useSsl = false;
     private String sslProtocol = "TLSv1.3";
     private String trustStorePath;

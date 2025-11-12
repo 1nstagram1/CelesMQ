@@ -1,7 +1,9 @@
 package io.hydrodevelopments.celesmq.config;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Configuration class for RabbitMQ connection settings
@@ -16,6 +18,8 @@ public class RabbitMQConfig {
   private final int connectionTimeout;
   private final int networkRecoveryInterval;
   private final boolean automaticRecoveryEnabled;
+
+  // SSL/TLS configuration
   private final boolean useSsl;
   private final String sslProtocol;
   private final String trustStorePath;
@@ -23,13 +27,25 @@ public class RabbitMQConfig {
   private final String keyStorePath;
   private final String keyStorePassword;
   private final boolean validateServerCertificate;
+
+  // New fields for consumer and channels
   private final String consumerName;
+  // Exchange-based channels (exchange name per logical channel)
   private final Map<String, String> channels;
+  // Direct channels (queue-based routing)
+  private final Set<String> directChannels;
   private final boolean autoSubscribe;
+
+  // Queue configuration
   private final boolean queueDurable;
   private final boolean queueExclusive;
   private final boolean queueAutoDelete;
   private final Map<String, Object> queueArguments;
+
+  // Exchange configuration
+  private final boolean exchangeDurable;
+  private final boolean exchangeAutoDelete;
+  private final Map<String, Object> exchangeArguments;
 
   private RabbitMQConfig(Builder builder) {
     this.host = builder.host;
@@ -49,11 +65,15 @@ public class RabbitMQConfig {
     this.validateServerCertificate = builder.validateServerCertificate;
     this.consumerName = builder.consumerName;
     this.channels = new HashMap<>(builder.channels);
+    this.directChannels = new HashSet<>(builder.directChannels);
     this.autoSubscribe = builder.autoSubscribe;
     this.queueDurable = builder.queueDurable;
     this.queueExclusive = builder.queueExclusive;
     this.queueAutoDelete = builder.queueAutoDelete;
     this.queueArguments = builder.queueArguments != null ? new HashMap<>(builder.queueArguments) : null;
+    this.exchangeDurable = builder.exchangeDurable;
+    this.exchangeAutoDelete = builder.exchangeAutoDelete;
+    this.exchangeArguments = builder.exchangeArguments != null ? new HashMap<>(builder.exchangeArguments) : null;
   }
 
   public String getHost() {
@@ -94,6 +114,10 @@ public class RabbitMQConfig {
 
   public Map<String, String> getChannels() {
     return new HashMap<>(channels);
+  }
+
+  public Set<String> getDirectChannels() {
+    return new HashSet<>(directChannels);
   }
 
   public boolean isAutoSubscribe() {
@@ -144,6 +168,18 @@ public class RabbitMQConfig {
     return queueArguments != null ? new HashMap<>(queueArguments) : null;
   }
 
+  public boolean isExchangeDurable() {
+    return exchangeDurable;
+  }
+
+  public boolean isExchangeAutoDelete() {
+    return exchangeAutoDelete;
+  }
+
+  public Map<String, Object> getExchangeArguments() {
+    return exchangeArguments != null ? new HashMap<>(exchangeArguments) : null;
+  }
+
   /**
    * Builder class for RabbitMQConfig
    * All fields must be explicitly configured - no defaults
@@ -159,6 +195,7 @@ public class RabbitMQConfig {
     private boolean automaticRecoveryEnabled;
     private String consumerName;
     private Map<String, String> channels = new HashMap<>();
+    private Set<String> directChannels = new HashSet<>();
     private boolean autoSubscribe;
 
     // SSL/TLS configuration (optional)
@@ -169,12 +206,13 @@ public class RabbitMQConfig {
     private String keyStorePath;
     private String keyStorePassword;
     private boolean validateServerCertificate = true;
-
-    // Queue configuration
     private boolean queueDurable = true;
     private boolean queueExclusive = false;
     private boolean queueAutoDelete = false;
     private Map<String, Object> queueArguments;
+    private boolean exchangeDurable = true;
+    private boolean exchangeAutoDelete = false;
+    private Map<String, Object> exchangeArguments;
 
     public Builder host(String host) {
       this.host = host;
@@ -226,7 +264,34 @@ public class RabbitMQConfig {
     }
 
     /**
-     * Adds a channel (name -> exchange mapping)
+     * Adds a direct channel (uses direct queue routing - no exchange)
+     * This is compatible with the old RabbitMQ pattern where messages go directly to queues.
+     *
+     * <p>Example:
+     * <pre>{@code
+     * .addChannel("auth-server")           // Direct queue routing
+     * }</pre>
+     *
+     * @param queueName the name of the queue to send messages to directly
+     * @return this builder
+     */
+    public Builder addChannel(String queueName) {
+      this.directChannels.add(queueName);
+      return this;
+    }
+
+    /**
+     * Adds an exchange-based channel (uses exchange routing for broadcast/fanout)
+     * This creates an exchange and is useful for pub/sub patterns.
+     *
+     * <p>Example:
+     * <pre>{@code
+     * .addChannel("auth-server", "auth-server-exchange")
+     * }</pre>
+     *
+     * @param channelName the logical channel name
+     * @param exchangeName the RabbitMQ exchange name
+     * @return this builder
      */
     public Builder addChannel(String channelName, String exchangeName) {
       this.channels.put(channelName, exchangeName);
@@ -234,7 +299,7 @@ public class RabbitMQConfig {
     }
 
     /**
-     * Sets multiple channels at once
+     * Sets multiple exchange-based channels at once
      */
     public Builder channels(Map<String, String> channels) {
       this.channels.putAll(channels);
@@ -387,6 +452,67 @@ public class RabbitMQConfig {
         this.queueArguments = new HashMap<>();
       }
       this.queueArguments.put(key, value);
+      return this;
+    }
+
+    /**
+     * Sets whether exchanges should be durable (survive broker restart)
+     * Default is true
+     *
+     * WARNING: Changing this from an existing exchange's setting will cause
+     * PRECONDITION_FAILED errors. Delete the old exchange first or use a new name.
+     */
+    public Builder exchangeDurable(boolean exchangeDurable) {
+      this.exchangeDurable = exchangeDurable;
+      return this;
+    }
+
+    /**
+     * Sets whether exchanges should auto-delete when no longer in use
+     * Default is false
+     *
+     * WARNING: Changing this from an existing exchange's setting will cause
+     * PRECONDITION_FAILED errors. Delete the old exchange first or use a new name.
+     */
+    public Builder exchangeAutoDelete(boolean exchangeAutoDelete) {
+      this.exchangeAutoDelete = exchangeAutoDelete;
+      return this;
+    }
+
+    /**
+     * Sets exchange arguments (advanced configuration)
+     *
+     * Common arguments:
+     * - "alternate-exchange": Name of alternate exchange (String)
+     * - "x-delayed-type": For delayed message exchange plugin (String)
+     *
+     * Example:
+     * <pre>
+     * Map<String, Object> args = new HashMap<>();
+     * args.put("alternate-exchange", "fallback-exchange");
+     * builder.exchangeArguments(args);
+     * </pre>
+     *
+     * WARNING: Changing arguments from an existing exchange's settings will cause
+     * PRECONDITION_FAILED errors. Delete the old exchange first or use a new name.
+     */
+    public Builder exchangeArguments(Map<String, Object> exchangeArguments) {
+      this.exchangeArguments = exchangeArguments != null ? new HashMap<>(exchangeArguments) : null;
+      return this;
+    }
+
+    /**
+     * Adds a single exchange argument
+     *
+     * @param key argument key (e.g., "alternate-exchange")
+     * @param value argument value
+     * @return this builder
+     */
+    public Builder addExchangeArgument(String key, Object value) {
+      if (this.exchangeArguments == null) {
+        this.exchangeArguments = new HashMap<>();
+      }
+      this.exchangeArguments.put(key, value);
       return this;
     }
 

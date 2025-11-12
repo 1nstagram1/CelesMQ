@@ -133,8 +133,12 @@ public class RabbitMQConsumer {
     try {
       Channel channel = connectionManager.createChannel();
 
-      // Declare fanout exchange
-      channel.exchangeDeclare(exchangeName, "fanout", true);
+      // Declare fanout exchange with configured parameters
+      boolean durable = connectionManager.getConfig().isExchangeDurable();
+      boolean autoDelete = connectionManager.getConfig().isExchangeAutoDelete();
+      Map<String, Object> arguments = connectionManager.getConfig().getExchangeArguments();
+
+      channel.exchangeDeclare(exchangeName, "fanout", durable, autoDelete, arguments);
 
       // Create temporary exclusive queue
       String queueName = channel.queueDeclare().getQueue();
@@ -199,8 +203,12 @@ public class RabbitMQConsumer {
     try {
       Channel channel = connectionManager.createChannel();
 
-      // Declare topic exchange
-      channel.exchangeDeclare(exchangeName, "topic", true);
+      // Declare topic exchange with configured parameters
+      boolean durable = connectionManager.getConfig().isExchangeDurable();
+      boolean autoDelete = connectionManager.getConfig().isExchangeAutoDelete();
+      Map<String, Object> arguments = connectionManager.getConfig().getExchangeArguments();
+
+      channel.exchangeDeclare(exchangeName, "topic", durable, autoDelete, arguments);
 
       // Create queue
       String queueName = channel.queueDeclare().getQueue();

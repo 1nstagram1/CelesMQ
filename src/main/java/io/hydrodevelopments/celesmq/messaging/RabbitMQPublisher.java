@@ -52,7 +52,7 @@ public class RabbitMQPublisher {
       try {
         Channel channel = connectionManager.getChannel();
 
-        // Declare queue with configured parameters
+        // Declare queue with configured parameters, idempotent operation
         boolean durable = connectionManager.getConfig().isQueueDurable();
         boolean exclusive = connectionManager.getConfig().isQueueExclusive();
         boolean autoDelete = connectionManager.getConfig().isQueueAutoDelete();
@@ -108,8 +108,12 @@ public class RabbitMQPublisher {
       try {
         Channel channel = connectionManager.getChannel();
 
-        // Declare exchange (idempotent operation)
-        channel.exchangeDeclare(exchangeName, exchangeType, true);
+        // Declare exchange with configured parameters, idempotent operation
+        boolean durable = connectionManager.getConfig().isExchangeDurable();
+        boolean autoDelete = connectionManager.getConfig().isExchangeAutoDelete();
+        Map<String, Object> arguments = connectionManager.getConfig().getExchangeArguments();
+
+        channel.exchangeDeclare(exchangeName, exchangeType, durable, autoDelete, arguments);
 
         // Prepare message properties
         AMQP.BasicProperties props = persistent ?
@@ -147,8 +151,12 @@ public class RabbitMQPublisher {
       try {
         Channel channel = connectionManager.getChannel();
 
-        // Declare exchange
-        channel.exchangeDeclare(exchangeName, "direct", true);
+        // Declare exchange with configured parameters
+        boolean durable = connectionManager.getConfig().isExchangeDurable();
+        boolean autoDelete = connectionManager.getConfig().isExchangeAutoDelete();
+        Map<String, Object> arguments = connectionManager.getConfig().getExchangeArguments();
+
+        channel.exchangeDeclare(exchangeName, "direct", durable, autoDelete, arguments);
 
         // Build properties with headers
         AMQP.BasicProperties.Builder propsBuilder = new AMQP.BasicProperties.Builder();

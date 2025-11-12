@@ -4,16 +4,20 @@ import com.google.gson.JsonObject;
 import io.hydrodevelopments.celesmq.RabbitMQClient;
 import io.hydrodevelopments.celesmq.util.JsonSerializer;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 /**
- * Request-Response pattern for RabbitMQ with automatic callback handling Supports timeouts and provides
- * CompletableFuture-based API
+ * Request-Response pattern for RabbitMQ with automatic callback handling
+ * Supports timeouts and provides CompletableFuture-based API
  */
 public class MessageRequest {
 
@@ -127,10 +131,176 @@ public class MessageRequest {
   }
 
   /**
-   * Sets all data at once from a Map
+   * Sets all data at once from a Map (alias for params)
    */
   public MessageRequest data(Map<String, Object> data) {
     return params(data);
+  }
+
+  /**
+   * Adds a UUID parameter (automatically converts to string)
+   *
+   * @param key the parameter key
+   * @param value the UUID value
+   * @return this request builder
+   */
+  public MessageRequest uuid(String key, UUID value) {
+    if (value != null) {
+      data.addProperty(key, value.toString());
+    }
+    return this;
+  }
+
+  /**
+   * Conditionally adds a parameter if condition is true
+   *
+   * Useful for optional parameters:
+   * <pre>
+   * request.param("action", "query")
+   *        .paramIf(filter != null, "filter", filter)
+   *        .paramIf(includeOffline, "include_offline", true)
+   * </pre>
+   *
+   * @param condition whether to add the parameter
+   * @param key the parameter key
+   * @param value the parameter value
+   * @return this request builder
+   */
+  public MessageRequest paramIf(boolean condition, String key, Object value) {
+    if (condition) {
+      param(key, value);
+    }
+    return this;
+  }
+
+  /**
+   * Conditionally adds a UUID parameter if condition is true
+   *
+   * @param condition whether to add the parameter
+   * @param key the parameter key
+   * @param value the UUID value
+   * @return this request builder
+   */
+  public MessageRequest uuidIf(boolean condition, String key, UUID value) {
+    if (condition) {
+      uuid(key, value);
+    }
+    return this;
+  }
+
+  /**
+   * Adds an enum parameter (automatically converts to string)
+   *
+   * @param key the parameter key
+   * @param value the enum value
+   * @return this request builder
+   */
+  public MessageRequest param(String key, Enum<?> value) {
+    if (value != null) {
+      data.addProperty(key, value.name());
+    }
+    return this;
+  }
+
+  /**
+   * Conditionally adds an enum parameter if condition is true
+   *
+   * @param condition whether to add the parameter
+   * @param key the parameter key
+   * @param value the enum value
+   * @return this request builder
+   */
+  public MessageRequest paramIf(boolean condition, String key, Enum<?> value) {
+    if (condition && value != null) {
+      data.addProperty(key, value.name());
+    }
+    return this;
+  }
+
+  /**
+   * Adds an Instant parameter (converts to epoch milliseconds)
+   *
+   * @param key the parameter key
+   * @param value the Instant value
+   * @return this request builder
+   */
+  public MessageRequest instant(String key, Instant value) {
+    if (value != null) {
+      data.addProperty(key, value.toEpochMilli());
+    }
+    return this;
+  }
+
+  /**
+   * Conditionally adds an Instant parameter if condition is true
+   *
+   * @param condition whether to add the parameter
+   * @param key the parameter key
+   * @param value the Instant value
+   * @return this request builder
+   */
+  public MessageRequest instantIf(boolean condition, String key, Instant value) {
+    if (condition) {
+      instant(key, value);
+    }
+    return this;
+  }
+
+  /**
+   * Adds a LocalDateTime parameter (converts to epoch milliseconds using system timezone)
+   *
+   * @param key the parameter key
+   * @param value the LocalDateTime value
+   * @return this request builder
+   */
+  public MessageRequest localDateTime(String key, LocalDateTime value) {
+    if (value != null) {
+      Instant instant = value.atZone(ZoneId.systemDefault()).toInstant();
+      data.addProperty(key, instant.toEpochMilli());
+    }
+    return this;
+  }
+
+  /**
+   * Conditionally adds a LocalDateTime parameter if condition is true
+   *
+   * @param condition whether to add the parameter
+   * @param key the parameter key
+   * @param value the LocalDateTime value
+   * @return this request builder
+   */
+  public MessageRequest localDateTimeIf(boolean condition, String key, LocalDateTime value) {
+    if (condition) {
+      localDateTime(key, value);
+    }
+    return this;
+  }
+
+  /**
+   * Adds a timestamp parameter (epoch milliseconds)
+   *
+   * @param key the parameter key
+   * @param epochMillis the timestamp in milliseconds
+   * @return this request builder
+   */
+  public MessageRequest timestamp(String key, long epochMillis) {
+    data.addProperty(key, epochMillis);
+    return this;
+  }
+
+  /**
+   * Conditionally adds a timestamp parameter if condition is true
+   *
+   * @param condition whether to add the parameter
+   * @param key the parameter key
+   * @param epochMillis the timestamp in milliseconds
+   * @return this request builder
+   */
+  public MessageRequest timestampIf(boolean condition, String key, long epochMillis) {
+    if (condition) {
+      data.addProperty(key, epochMillis);
+    }
+    return this;
   }
 
   /**
@@ -184,7 +354,7 @@ public class MessageRequest {
     // Log completion time on success
     future.thenAccept(response -> {
       long elapsed = System.currentTimeMillis() - startTime;
-      if (elapsed > 100) {
+      if (elapsed > 100) { // Only log if > 100ms
         logger.info("Request " + data.get("action").getAsString() + " completed in " + elapsed + "ms");
       }
     });
@@ -193,7 +363,8 @@ public class MessageRequest {
   }
 
   /**
-   * Handles an incoming response message This should be called by the message consumer when a reply is received
+   * Handles an incoming response message
+   * This should be called by the message consumer when a reply is received
    */
   public static void handleResponse(int taskId, String jsonResponse, ResponseStatus status) {
     CompletableFuture<MessageResponse> future = pendingRequests.remove(taskId);
@@ -214,7 +385,7 @@ public class MessageRequest {
       try {
         status = ResponseStatus.fromString(statusStr);
       } catch (IllegalArgumentException e) {
-        // Default to SUCCESS if unknown
+        // Default to SUCCESS if unrecognized
       }
     }
 

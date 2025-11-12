@@ -119,7 +119,7 @@ MessageResponse response = manager
     <dependency>
         <groupId>com.github.1nstagram1</groupId>
         <artifactId>celesmq</artifactId>
-        <version>2.1.0</version>
+        <version>2.1.1</version>
     </dependency>
 </dependencies>
 ```
@@ -132,7 +132,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.github.1nstagram1:celesmq:2.1.0'
+    implementation 'com.github.1nstagram1:celesmq:2.1.1'
 }
 ```
 
